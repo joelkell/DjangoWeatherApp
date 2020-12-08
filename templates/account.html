@@ -1,0 +1,21 @@
+<!-- templates/home.html-->
+{% extends 'base.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item" id="username">Username: {{ user.username }}</li>
+                    <li class="list-group-item" id="change-password"><a class="nav-link"
+                                                                        href="{% url 'password_change' %}">Change
+                        Password</a></li>
+                    <li class="list-group-item" id="logout"><a class="nav-link" href="{% url 'logout' %}">Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock %}

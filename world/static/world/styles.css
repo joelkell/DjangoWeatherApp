@@ -1,0 +1,57 @@
+.address, .weather {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.address {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.weather {
+    margin-top: 10px;
+}
+
+.details-row, .temperature-row {
+    margin-bottom: 20px;
+}
+
+.more-weather-dropdown {
+    margin-bottom: 6px;
+    margin-top: 10px;
+}
+
+.map-row {
+    margin-top: 20px;
+}
+
+#current-position-button {
+    margin-bottom: 10px;
+}
+
+.previous-searches {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.search-invalid {
+    color: red;
+    margin-top: 5px;
+}
+
+@media (max-width: 768px) {
+    .town, .weather-main, .temperature {
+        font-size: 32px;
+    }
+}
+
+@media (max-width: 576px) {
+    .town, .weather-main, .temperature {
+        font-size: 26px;
+    }
+
+    .county, .country, .weather-description, .temperature-min, .temperature-max {
+        font-size: 18px;
+        word-wrap: break-word;
+    }
+}

@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+{% load leaflet_tags %}
+{% load static %}
+{% load i18n %}
+{% load crispy_forms_tags %}
+{% load crispy_forms_filters %}
+{% block head_title %}{% trans "Map Page" %}{% endblock %}
+{% block extra_header %}
+    <style>
+        #map {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+    <link rel="stylesheet" type="text/css" href="{% static 'world/styles.css' %}">
+{% endblock %}
+{% block content %}
+     {% csrf_token %}
+    <div class="container">
+        <div class="row">
+            <div class="col-10 search-container">
+                <input type="search" class="form-control" id="searchbar" placeholder="Search for an area here...">
+            </div>
+            <div class="col-2">
+                <button type="submit" class="btn btn-dark" id="search-button">
+                    <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-search" fill="currentColor"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd"
+                              d="M10.442 10.442a1 1 0 0 1 1.415 0l3.85 3.85a1 1 0 0 1-1.414 1.415l-3.85-3.85a1 1 0 0 1 0-1.415z"/>
+                        <path fill-rule="evenodd"
+                              d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM13 6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="col-12 address">
+                <div class="d-flex flex-row">
+                    <p class="town display-4 mr-3 align-self-center">
+
+                    </p>
+                    <p class="county lead align-self-end">
+
+                    </p>
+                    <p class="country lead ml-auto align-self-start">
+
+                    </p>
+                </div>
+            </div>
+            <div class="col-12 weather d-flex flex-column">
+                <div class="d-flex flex-row details-row">
+                    <img id="weather-icon" src="" alt="Weather icon" class="img-fluid mr-3 align-self-center">
+                    <p class="weather-main display-4 align-self-center">
+
+                    </p>
+                    <p class="weather-description lead ml-auto align-self-end">
+
+                    </p>
+                </div>
+                <div class="d-flex flex-row temperature-row">
+                    <p class="temperature display-4 mr-3 align-self-center">
+
+                    </p>
+                    <p class="temperature-min lead mr-3 align-self-end">
+
+                    </p>
+                    <p class="temperature-max lead align-self-end">
+
+                    </p>
+                </div>
+            </div>
+            <div class="col-12 d-flex justify-content-center more-weather-dropdown">
+                <button class="btn btn-dark" type="button" data-toggle="collapse" data-target="#more-weather"
+                        aria-expanded="false" aria-controls="more-weather">
+                    More Info
+                </button>
+            </div>
+            <div class="collapse col-12" id="more-weather">
+                <div class="card card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item" id="pressure"></li>
+                        <li class="list-group-item" id="humidity"></li>
+                        <li class="list-group-item" id="feels-like"></li>
+                        <li class="list-group-item" id="wind-speed"></li>
+                        <li class="list-group-item" id="wind-degree"></li>
+                        <li class="list-group-item" id="cloud-cover"></li>
+                        <li class="list-group-item" id="sunrise"></li>
+                        <li class="list-group-item" id="sunset"></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-12 map-row">
+                <button class="btn btn-dark" id="current-position-button"
+                        type="submit">Current Location
+                </button>
+                <h3>{% trans "Click area on Map to update weather information" %}</h3>
+                <div style="width: 100%">
+                    {% leaflet_map "map" callback="window.map_init_basic" %}
+                </div>
+            </div>
+
+            <div class="col-12 previous-searches" id="previous-searches-container">
+                {% if user.is_authenticated %}
+                    <h3>{% trans "Recent Locations" %}</h3>
+                {% else %}
+                    <h3>{% trans "Signup or Login to view previous locations" %}</h3>
+                    <a role="button" class="btn btn-outline-dark" href="{% url 'signup' %}">Sign Up</a>
+                    <a role="button" class="btn btn-outline-dark" href="{% url 'login' %}">Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_footer %}
+    <script>
+        var HOST = location.protocol + "//" + location.host;
+
+        function reverseGeocoding(lat, long) {
+            return new Promise(function (resolve) {
+                var locString = lat + ", " + long;
+                $.ajax({
+                    type: "POST",
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    url: HOST + "/reversegeocode/",
+                    data: {
+                        point: locString
+                    }
+                }).done(function (data, status, xhr) {
+                    setLocationValues(data);
+                }).fail(function (xhr, status, error) {
+                    console.log(error);
+                }).always(function () {
+                    resolve();
+                });
+            });
+        }
+
+        function setLocationValues(data) {
+            $(".town").text(getLocality(data));
+            $(".county").text(getCounty(data));
+            $(".country").text(getCountry(data));
+        }
+
+        function getLocality(data) {
+            if (data.locality) {
+                return data.locality;
+            } else if (data.village) {
+                return data.village;
+            } else if (data.town) {
+                return data.town;
+            } else if (data.suburb) {
+                return data.suburb;
+            } else if (data.hamlet) {
+                return data.hamlet;
+            } else if (data.neighbourhood) {
+                return data.neighbourhood;
+            } else if (data.wetland) {
+                return data.wetland;
+            } else if (data.body_of_water) {
+                return data.body_of_water;
+            } else {
+                return "Unknown";
+            }
+        }
+
+        function getCounty(data) {
+            if (data.county) {
+                return data.county;
+            } else if (data.state) {
+                return data.state;
+            } else {
+                return "Unknown";
+            }
+        }
+
+        function getCountry(data) {
+            if (data.country) {
+                return data.country;
+            } else if (data.continent) {
+                return data.continent;
+            } else {
+                return "Unknown";
+            }
+        }
+
+        function getWeather(lat, long) {
+            return new Promise(function (resolve) {
+                var locString = lat + ", " + long;
+                $.ajax({
+                    type: "POST",
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    url: HOST + "/getweather/",
+                    data: {
+                        point: locString
+                    }
+                }).done(function (data, status, xhr) {
+                    setWeatherValues(data);
+                }).fail(function (xhr, status, error) {
+                    console.log(error);
+                }).always(function () {
+                    resolve();
+                });
+            });
+        }
+
+        function setWeatherValues(data) {
+            $("#weather-icon").attr("src", "https://openweathermap.org/img/w/" + data.weather[0].icon + ".png");
+            $(".weather-main").text(data.weather[0].main);
+            $(".weather-description").text(data.weather[0].description);
+            $(".temperature").text(data.main.temp + "\u00B0C");
+            $(".temperature-min").text("Min:" + data.main.temp_min + "\u00B0C");
+            $(".temperature-max").text("Max: " + data.main.temp_max + "\u00B0C");
+            $("#pressure").text("Pressure: " + data.main.pressure + " hpa");
+            $("#humidity").text("Humidity: " + data.main.humidity + "%");
+            $("#feels-like").text("Feels-Like Temperature: " + data.main.feels_like + "\u00B0C");
+            $("#wind-speed").text("Wind Speed: " + data.wind.speed + " m/s");
+            $("#wind-degree").text("Wind Degree: " + data.wind.deg + " degrees");
+            $("#cloud-cover").text("Cloud Cover: " + data.clouds.all + "%");
+
+            var sunrise = new Date(data.sys.sunrise * 1000);
+            var sunset = new Date(data.sys.sunset * 1000);
+
+            $("#sunrise").text("Sunrise: " + formatTime(sunrise.getHours()) + ":" + formatTime(sunrise.getMinutes()) + ":" + formatTime(sunrise.getSeconds()) + " (UTC)");
+            $("#sunset").text("Sunset: " + formatTime(sunset.getHours()) + ":" + formatTime(sunset.getMinutes()) + ":" + formatTime(sunset.getSeconds()) + " (UTC)");
+        }
+
+        function formatTime(time) {
+            if (time < 10) {
+                formatted = "0" + time;
+                return formatted;
+            } else {
+                return time;
+            }
+        }
+
+        function getCookie(cookieType) {
+            var cookieRetrieved = null;
+
+            if (document.cookie === null || document.cookie === "") {
+                return null;
+            } else {
+                var cookieArray = document.cookie.split(";");
+                for (var i = 0; i , cookieArray.length; i++) {
+                    var thisCookie = jQuery.trim(cookieArray[i]);
+
+                    if (thisCookie.startsWith(cookieType = "c")) {
+                        cookieRetrieved = decodeURIComponent(thisCookie.substring(10));
+                        break;
+                    }
+                }
+            }
+            return cookieRetrieved;
+        }
+
+        var locationMarker;
+        $("#map").css({
+            "width": "100%",
+            "height": $(window).height()/2 - $(".navbar").height()
+        });
+
+        function map_init_basic(map, options) {
+            navigator.geolocation.getCurrentPosition(function (pos) {
+                    map.setView([pos.coords.latitude, pos.coords.longitude], 10);
+                    var latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+                    updateLocation(latlng, map);
+                }, function (err) {
+                },
+                {
+                    enableHighAccuracy: true, timeout: 30000
+                }
+            );
+
+            map.on('touchstart click dblclick ', function (position) {
+                updateLocation(position.latlng, map);
+            });
+
+            $("#current-position-button").click(function () {
+                setMapToCurrentLocation(map);
+            });
+
+            $("#search-button").click(function () {
+                search(map);
+            });
+
+            document.getElementById("searchbar").addEventListener("keypress", function (e) {
+                if (e.key === "Enter") {
+                    search(map);
+                }
+            });
+        }
+
+        function search(map) {
+            if ($(".search-invalid")) {
+                $(".search-invalid").remove();
+            }
+            var searchbar = $("#searchbar")
+            var search = searchbar.val();
+            searchbar.val("");
+            forwardGeocoding(search, map);
+        }
+
+        async function updateLocation(latlng, map) {
+            await getWeather(latlng.lat, latlng.lng);
+            await reverseGeocoding(latlng.lat, latlng.lng);
+            setMapToSelectedLocation(map, latlng);
+            {% if user.is_authenticated %}
+                await addLocationToDB(latlng.lat, latlng.lng);
+                getLocations(map);
+            {% endif %}
+        }
+
+        function setMapToSelectedLocation(map, latlng) {
+            map.flyTo(latlng, 10);
+            if (locationMarker) {
+                map.removeLayer(locationMarker);
+            }
+            locationMarker = L.marker(latlng).addTo(map);
+            locationMarker.bindPopup("<div class='d-flex flex-row'> <img id='weather-icon-popup' src='" + $("#weather-icon").attr("src") + "' alt='Weather icon' class='img-fluid' > <p class='mr-3 lead'>" + $(".weather-main").text() + "</p></div>", {minWidth: 100}).openPopup();
+        }
+
+        function setMapToCurrentLocation(map) {
+            navigator.geolocation.getCurrentPosition(function (pos) {
+                    var latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+                    updateLocation(latlng, map);
+                }, function (err) {
+                },
+                {
+                    enableHighAccuracy: true, timeout: 30000
+                }
+            );
+        }
+
+        function addLocationToDB(lat, long) {
+            return new Promise(function (resolve) {
+                var locString = lat + ", " + long;
+                $.ajax({
+                    type: "POST",
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    url: HOST + "/addlocation/",
+                    data: {
+                        point: locString,
+                        location: $(".town").text() + ", " + $(".county").text() + ", " + $(".country").text()
+                    }
+                }).done(function (data, status, xhr) {
+                }).fail(function (xhr, status, error) {
+                    console.log(error);
+                }).always(function () {
+                    resolve();
+                });
+            });
+        }
+
+        function getLocations(map) {
+            $.ajax({
+                type: "GET",
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                url: HOST + "/getlocations/"
+            }).done(function (data, status, xhr) {
+                addRecentLocations(data, map);
+            }).fail(function (xhr, status, error) {
+                console.log(error);
+            });
+        }
+
+        function addRecentLocations(data, map) {
+            var container = document.getElementById("previous-searches-container");
+            if (document.getElementById("previous-searches-list")) {
+                container.removeChild(document.getElementById("previous-searches-list"));
+            }
+            var list = document.createElement("ul");
+            list.setAttribute("class", "list-group list-group-flush");
+            list.setAttribute("id", "previous-searches-list");
+            data.forEach(function (item, index) {
+                var listItem = document.createElement("li");
+                listItem.setAttribute("class", "list-group-item");
+                listItem.setAttribute("id", "location-" + index);
+
+                var button = document.createElement("button");
+                button.setAttribute("class", "btn btn-link");
+                button.setAttribute("type", "button");
+
+                var latlong = item.location.substring(item.location.indexOf("(") + 1, item.location.length - 1);
+                var lat = latlong.substring(0, latlong.indexOf(" "));
+                var lon = latlong.substring(latlong.indexOf(" ") + 1);
+
+                button.setAttribute("lat", lat);
+                button.setAttribute("lon", lon);
+
+                button.innerHTML = item.location_name;
+
+                $(button).click(function () {
+                    updateLocation(L.latLng(lat, lon), map);
+                });
+
+                listItem.appendChild(button);
+                list.appendChild(listItem);
+            });
+            container.appendChild(list);
+        }
+
+        function forwardGeocoding(search, map) {
+            $.ajax({
+                type: "POST",
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                url: HOST + "/forwardgeocode/",
+                data: {
+                    search: search
+                }
+            }).done(function (data, status, xhr) {
+                if (data.location) {
+                    $("<div class='search-invalid'>Location could not be found</div>").appendTo(".search-container");
+                } else {
+                    updateLocation(L.latLng(data.lat, data.lng), map);
+                }
+            }).fail(function (xhr, status, error) {
+                console.log(error);
+            });
+        }
+    </script>
+{% endblock %}
